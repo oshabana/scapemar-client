@@ -1,3 +1,4 @@
+import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.JOptionPane;
 
 public class ScapeMarLauncher {
     private static final String PLUGIN_KEY = "runelite.externalPlugins";
@@ -19,6 +21,19 @@ public class ScapeMarLauncher {
     private static final Pattern ACTIVE = Pattern.compile("\"active\"\\s*:\\s*true");
 
     public static void main(String[] args) throws Exception {
+        try {
+            run(args);
+        } catch (Exception e) {
+            if (GraphicsEnvironment.isHeadless()) {
+                throw e;
+            }
+            JOptionPane.showMessageDialog(null, e.getMessage(), "ScapeMar could not start",
+                JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+    }
+
+    private static void run(String[] args) throws Exception {
         Path bundle = Path.of(System.getProperty("user.dir"));
         if (!Files.isRegularFile(bundle.resolve("proxy-targets.yaml"))) {
             throw new IOException("Run this from the extracted ScapeMar bundle.");
@@ -35,7 +50,7 @@ public class ScapeMarLauncher {
         if (!Files.isRegularFile(launcher)) {
             throw new IOException("rsprox-launcher.jar is missing from this bundle.");
         }
-        String java = Path.of(System.getProperty("java.home"), "bin", isWindows() ? "java.exe" : "java")
+        String java = Path.of(System.getProperty("java.home"), "bin", isWindows() ? "javaw.exe" : "java")
             .toString();
         new ProcessBuilder(java, "-jar", launcher.toString()).inheritIO().start().waitFor();
     }

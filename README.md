@@ -6,19 +6,21 @@ ScapeMar client downloads for world 255. The server is already hosted. [Choose y
 
 Choose your computer from the [latest release](https://github.com/oshabana/scapemar-client/releases/latest):
 
-| Computer | File | Open after extracting |
+| Computer | File | Then |
 | --- | --- | --- |
-| Mac | `ScapeMar-macos.zip` | `Launch ScapeMar.command` |
-| Windows | `ScapeMar-windows.zip` | `Launch ScapeMar.bat` |
-| Linux | `ScapeMar-linux.zip` | `Launch ScapeMar.sh` |
+| Mac | `ScapeMar-macos.dmg` | Drag **ScapeMar** to Applications and open it |
+| Windows | `ScapeMar-windows-setup.exe` | Run it; ScapeMar opens and gets Start menu and desktop shortcuts |
+| Linux | `ScapeMar-linux.zip` | Extract it and open `Launch ScapeMar.sh` |
 
-Install [Java 21](https://adoptium.net/temurin/releases/?version=21) first. Extract the whole zip, then open the launcher. On Mac, approve the network prompt. If macOS blocks the downloaded launcher, right-click it and choose **Open**.
+Java is included in every download; there is nothing else to install. `ScapeMar-windows.zip` is a no-install Windows copy: extract it and open `Launch ScapeMar.bat`.
+
+The downloads are not signed with a paid developer certificate, so the first launch shows a warning. On Mac, approve the network prompt; if macOS blocks the app, open **System Settings → Privacy & Security** and click **Open Anyway**. On Windows, click **More info**, then **Run anyway**.
 
 The launcher installs the public server connection and selects **Quest Helper** and **117 HD** for RuneLite's Plugin Hub. RSProx then opens: select **ScapeMar**, choose **RuneLite**, and click **Launch**. On the login screen, click **New User** to pick a username and password (typed twice), or **Existing User** to sign in.
 
 If either plugin does not appear, open RuneLite's wrench icon, open **Plugin Hub**, search for **Quest Helper** or **117 HD**, and click **Install**. The plugins come from RuneLite's Plugin Hub and receive updates there.
 
-The bundle contains the [official RSProx launcher](https://github.com/blurite/rsprox/releases/tag/v1.0), the public connection profile, and our setup launcher. It contains no server code, account credentials, or modified RuneLite binary. The [release checksums](https://github.com/oshabana/scapemar-client/releases/latest) let you check the downloaded zips. ScapeMar is unofficial and is not affiliated with Jagex, RuneLite, or RSProx.
+The bundle contains the [Eclipse Temurin Java 21 runtime](https://adoptium.net/), the [official RSProx launcher](https://github.com/blurite/rsprox/releases/tag/v1.0), the public connection profile, and our setup launcher. It contains no server code, account credentials, or modified RuneLite binary. The [release checksums](https://github.com/oshabana/scapemar-client/releases/latest) let you check the downloaded zips. ScapeMar is unofficial and is not affiliated with Jagex, RuneLite, or RSProx.
 
 ## If you already use RSProx
 
@@ -30,4 +32,4 @@ On Mac, the first custom target needs `127.0.255.3` on `lo0`. The bundle adds it
 
 ## Maintainer
 
-Run `./build-bundles.sh` with Java 21 to make the three release zips. `./build-login-plugin.sh` builds only the login plugin into `dist/ScapeMar-Login.jar`, where the game server's local `play.sh` picks it up. The build verifies the official RSProx v1.0 launcher SHA-256 before packaging. The public address and login modulus live in `proxy-targets.yaml`; rebuild and republish when they change.
+Run `./build-bundles.sh` on a Mac with a JDK (21 or newer) and `makensis` (`brew install makensis`) to make the four release files. It downloads the Temurin Java 21 runtimes, checks them against Adoptium's checksums, and caches them in `dist/runtimes`. `./build-login-plugin.sh` builds only the login plugin into `dist/ScapeMar-Login.jar`, where the game server's local `play.sh` picks it up. It also verifies the official RSProx v1.0 launcher SHA-256 before packaging. The public address and login modulus live in `proxy-targets.yaml`; rebuild and republish when they change.

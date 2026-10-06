@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-java -cp . ScapeMarLauncher
+runtime\bin\java.exe -cp . ScapeMarLauncher
 if errorlevel 1 pause

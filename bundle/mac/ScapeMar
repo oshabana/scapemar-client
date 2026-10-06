@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+res=$(cd "$(dirname "$0")/../Resources" && pwd)
+runtime=runtime-x64
+if [ "$(uname -m)" = arm64 ] || [ "$(sysctl -in sysctl.proc_translated)" = 1 ]; then
+  runtime=runtime-arm64
+fi
+if ! ifconfig lo0 | grep -q 'inet 127.0.255.3 '; then
+  osascript -e 'do shell script "ifconfig lo0 alias 127.0.255.3 up" with prompt "ScapeMar needs a one-time network setting to connect." with administrator privileges'
+fi
+cd "$res"
+exec "$res/$runtime/Contents/Home/bin/java" -Xdock:name=ScapeMar -cp . ScapeMarLauncher

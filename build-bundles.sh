@@ -20,7 +20,7 @@ javac --release 21 -d "$tmp" bundle/ScapeMarLauncher.java
 
 runtime() {
   url=$(curl -fsS -o /dev/null -w '%{redirect_url}' \
-    "https://api.adoptium.net/v3/binary/latest/21/ga/$1/$2/jre/hotspot/normal/eclipse")
+    "https://api.adoptium.net/v3/binary/latest/21/ga/$1/$2/jdk/hotspot/normal/eclipse")
   file="$cache/$(basename "$url")"
   if [ ! -f "$file" ]; then
     curl -fLsS --retry 3 -o "$file.part" "$url"

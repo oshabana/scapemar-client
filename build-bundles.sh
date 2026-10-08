@@ -15,7 +15,15 @@ if [ "$actual" != "$expected" ]; then
   echo 'RSProx download hash does not match the reviewed release.' >&2
   exit 1
 fi
-javac --release 21 -d "$tmp" bundle/ScapeMarLauncher.java
+version=${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}
+case "$version" in
+  [0-9]*.[0-9]*) ;;
+  *) echo 'Set VERSION to a number like 0.5.0, or tag the release first.' >&2; exit 1 ;;
+esac
+javac --release 21 -d "$tmp" bundle/ScapeMarLauncher.java bundle/ScapeMarAuto.java
+printf 'Premain-Class: ScapeMarAuto\n' > "$tmp/auto.mf"
+jar --create --file "$tmp/ScapeMar-Auto.jar" --manifest "$tmp/auto.mf" -C "$tmp" ScapeMarAuto.class
+printf '%s\n' "$version" > "$tmp/version.txt"
 ./build-login-plugin.sh "$tmp/ScapeMar-Login.jar" > /dev/null
 
 runtime() {
@@ -43,6 +51,7 @@ runtime() {
 common() {
   mkdir -p "$1"
   cp "$tmp/ScapeMarLauncher.class" "$tmp/rsprox-launcher.jar" "$tmp/ScapeMar-Login.jar" \
+    "$tmp/ScapeMar-Auto.jar" "$tmp/version.txt" \
     proxy-targets.yaml bundle/RSProx-LICENSE.txt "$1/"
 }
 
@@ -77,3 +86,8 @@ rm -f "$out/ScapeMar-linux.zip"
 
 (cd "$out" && shasum -a 256 ScapeMar-macos.dmg ScapeMar-windows-setup.exe ScapeMar-windows.zip \
   ScapeMar-linux.zip > SHA256SUMS.txt)
+
+cp proxy-targets.yaml "$tmp/ScapeMar-Login.jar" "$out/"
+printf '{"version":"%s","proxy-targets.yaml":"%s","ScapeMar-Login.jar":"%s"}\n' "$version" \
+  "$(shasum -a 256 proxy-targets.yaml | cut -d ' ' -f 1)" \
+  "$(shasum -a 256 "$tmp/ScapeMar-Login.jar" | cut -d ' ' -f 1)" > "$out/update.json"

@@ -1,5 +1,16 @@
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.util.HexFormat;
+import javax.swing.JLabel;
+import javax.swing.JWindow;
+import javax.swing.SwingUtilities;
+import javax.swing.BorderFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +26,8 @@ import javax.swing.JOptionPane;
 public class ScapeMarLauncher {
     private static final String PLUGIN_KEY = "runelite.externalPlugins";
     private static final String LOGIN_PLUGIN = "ScapeMar-Login.jar";
+    private static final String UPDATE_URL =
+        "https://github.com/oshabana/scapemar-client/releases/latest/download/";
     private static final Pattern PROFILE = Pattern.compile("\\{([^{}]*)\\}");
     private static final Pattern NAME = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern ID = Pattern.compile("\"id\"\\s*:\\s*(-?\\d+)");
@@ -39,9 +52,18 @@ public class ScapeMarLauncher {
             throw new IOException("Run this from the extracted ScapeMar bundle.");
         }
         Path home = Path.of(System.getProperty("user.home"));
-        installTarget(bundle.resolve("proxy-targets.yaml"), home.resolve(".rsprox/proxy-targets.yaml"));
+        JWindow splash = showSplash("Checking for updates...");
+        Path assets;
+        try {
+            assets = checkForUpdates(bundle, home.resolve(".scapemar/update"));
+        } finally {
+            if (splash != null) {
+                splash.dispose();
+            }
+        }
+        installTarget(assets.resolve("proxy-targets.yaml"), home.resolve(".rsprox/proxy-targets.yaml"));
         installPlugins(home.resolve(".runelite"));
-        installLoginPlugin(bundle.resolve(LOGIN_PLUGIN), home.resolve(".rlcustom/sideloaded-plugins"));
+        installLoginPlugin(assets.resolve(LOGIN_PLUGIN), home.resolve(".rlcustom/sideloaded-plugins"));
         if (args.length > 0 && args[0].equals("--setup-only")) {
             System.out.println("ScapeMar connection and plugins configured.");
             return;
@@ -52,7 +74,106 @@ public class ScapeMarLauncher {
         }
         String java = Path.of(System.getProperty("java.home"), "bin", isWindows() ? "javaw.exe" : "java")
             .toString();
-        new ProcessBuilder(java, "-jar", launcher.toString()).inheritIO().start().waitFor();
+        ProcessBuilder game = new ProcessBuilder(java, "-jar", launcher.toString()).inheritIO();
+        Path auto = bundle.resolve("ScapeMar-Auto.jar");
+        if (Files.isRegularFile(auto)) {
+            game.environment().put("JAVA_TOOL_OPTIONS", "-javaagent:" + auto);
+        }
+        game.start().waitFor();
+    }
+
+    private static JWindow showSplash(String text) throws Exception {
+        if (GraphicsEnvironment.isHeadless()) {
+            return null;
+        }
+        JWindow[] window = new JWindow[1];
+        SwingUtilities.invokeAndWait(() -> {
+            JLabel label = new JLabel("ScapeMar - " + text, JLabel.CENTER);
+            label.setBorder(BorderFactory.createEmptyBorder(24, 48, 24, 48));
+            window[0] = new JWindow();
+            window[0].add(label);
+            window[0].pack();
+            window[0].setLocationRelativeTo(null);
+            window[0].setAlwaysOnTop(true);
+            window[0].setVisible(true);
+        });
+        return window[0];
+    }
+
+    private static Path checkForUpdates(Path bundle, Path updates) {
+        try {
+            String bundled = Files.readString(bundle.resolve("version.txt")).trim();
+            String installed = Files.isRegularFile(updates.resolve("version.txt"))
+                ? Files.readString(updates.resolve("version.txt")).trim()
+                : bundled;
+            HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS)
+                .connectTimeout(Duration.ofSeconds(5)).build();
+            String manifest = fetch(http, "update.json");
+            Matcher version = Pattern.compile("\"version\"\\s*:\\s*\"([^\"]+)\"").matcher(manifest);
+            if (version.find() && newer(version.group(1), installed)) {
+                Path staging = updates.resolveSibling("update.new");
+                deleteTree(staging);
+                Files.createDirectories(staging);
+                for (String file : new String[] {"proxy-targets.yaml", LOGIN_PLUGIN}) {
+                    Matcher hash = Pattern.compile("\"" + Pattern.quote(file) + "\"\\s*:\\s*\"([0-9a-f]{64})\"")
+                        .matcher(manifest);
+                    byte[] data = fetchBytes(http, file);
+                    if (!hash.find() || !sha256(data).equals(hash.group(1))) {
+                        throw new IOException(file + " failed its checksum");
+                    }
+                    Files.write(staging.resolve(file), data);
+                }
+                Files.writeString(staging.resolve("version.txt"), version.group(1));
+                deleteTree(updates);
+                Files.move(staging, updates);
+                installed = version.group(1);
+            }
+            return newer(installed, bundled) ? updates : bundle;
+        } catch (Exception e) {
+            return bundle;
+        }
+    }
+
+    private static boolean newer(String candidate, String current) {
+        String[] a = candidate.split("\\.");
+        String[] b = current.split("\\.");
+        for (int i = 0; i < Math.max(a.length, b.length); i++) {
+            int x = i < a.length ? Integer.parseInt(a[i]) : 0;
+            int y = i < b.length ? Integer.parseInt(b[i]) : 0;
+            if (x != y) {
+                return x > y;
+            }
+        }
+        return false;
+    }
+
+    private static String fetch(HttpClient http, String file) throws Exception {
+        return new String(fetchBytes(http, file), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] fetchBytes(HttpClient http, String file) throws Exception {
+        HttpResponse<byte[]> response = http.send(
+            HttpRequest.newBuilder(URI.create(UPDATE_URL + file)).timeout(Duration.ofSeconds(30)).build(),
+            HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() != 200) {
+            throw new IOException(file + " returned " + response.statusCode());
+        }
+        return response.body();
+    }
+
+    private static String sha256(byte[] data) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (var walk = Files.walk(root)) {
+            for (Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
     }
 
     private static void installTarget(Path source, Path target) throws IOException {

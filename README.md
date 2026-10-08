@@ -24,7 +24,7 @@ The bundle contains the [Eclipse Temurin Java 21 runtime](https://adoptium.net/)
 
 ## If you already use RSProx
 
-The launcher can migrate an unchanged earlier profile to ScapeMar. It leaves any other existing RSProx target file alone. If you have a different target file, import this URL in RSProx instead:
+The launcher replaces any existing RSProx target file with ScapeMar's and saves your old one as `proxy-targets.yaml.scapemar-backup` in the same folder. To keep your own targets, import this URL in RSProx instead:
 
 `https://raw.githubusercontent.com/oshabana/scapemar-client/main/proxy-targets.yaml`
 

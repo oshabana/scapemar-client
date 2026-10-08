@@ -58,17 +58,12 @@ public class ScapeMarLauncher {
     private static void installTarget(Path source, Path target) throws IOException {
         String bundled = Files.readString(source, StandardCharsets.UTF_8);
         if (Files.exists(target)) {
-            String existing = Files.readString(target, StandardCharsets.UTF_8);
-            if (!existing.equals(bundled)) {
-                String previous = bundled.replace("name: ScapeMar", "name: OpenRune Friends");
-                if (!existing.equals(previous)) {
-                    throw new IOException("An RSProx target file already exists at " + target
-                        + ". Move it aside or import the ScapeMar URL in RSProx; your targets were not changed.");
-                }
-                Files.copy(target, target.resolveSibling("proxy-targets.yaml.scapemar-backup"),
-                    StandardCopyOption.REPLACE_EXISTING);
-                Files.writeString(target, bundled, StandardCharsets.UTF_8);
+            if (Files.readString(target, StandardCharsets.UTF_8).equals(bundled)) {
+                return;
             }
+            Files.copy(target, target.resolveSibling("proxy-targets.yaml.scapemar-backup"),
+                StandardCopyOption.REPLACE_EXISTING);
+            Files.writeString(target, bundled, StandardCharsets.UTF_8);
             return;
         }
         Files.createDirectories(target.getParent());
